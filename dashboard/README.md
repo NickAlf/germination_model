@@ -1,6 +1,5 @@
 # 🌱 Microgreens Check - GerminationNet Dashboard
 
-Your complete AI-powered germination detection system with PyTorch GerminationNet model, Google Drive support, and ChatGPT backup.
 
 ## What You Have
 
@@ -204,7 +203,3 @@ Document these components:
 - Test both germinated and non-germinated seeds
 - Compare probability scores across different growth stages
 - Document when ChatGPT fallback activates
-
----
-
-**Your proof of concept is ready!** Start by navigating to the homepage and clicking "AI Analysis" to test your GerminationNet model.
