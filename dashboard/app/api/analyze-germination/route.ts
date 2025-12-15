@@ -11,8 +11,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Image URL is required" }, { status: 400 })
     }
 
-    let result
-
     if (useColab && colabEndpoint) {
       try {
         console.log("[v0] Analyzing with GerminationNet model...")
@@ -29,71 +27,21 @@ export async function POST(request: NextRequest) {
           germinationRate: prediction.probability * 100,
         })
       } catch (error) {
-        console.log("[v0] GerminationNet failed, falling back to ChatGPT:", error)
-        // Fall through to ChatGPT
+        console.log("[v0] GerminationNet failed:", error)
+        return NextResponse.json({ error: "Failed to connect to Colab model. Check your ngrok URL." }, { status: 500 })
       }
     }
 
-    console.log("[v0] Analyzing with ChatGPT...")
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Analyze this seed germination image. Count total seeds and germinated seeds. Provide germination rate percentage and assessment. Return JSON with: germinated_seeds, total_seeds, germination_rate, growth_stage",
-              },
-              {
-                type: "image_url",
-                image_url: { url: imageUrl },
-              },
-            ],
-          },
-        ],
-        max_tokens: 500,
-      }),
+    console.log("[v0] Using demo/dummy data...")
+    return NextResponse.json({
+      success: true,
+      source: "demo",
+      germinatedCount: 8,
+      totalSeeds: 10,
+      germinationRate: 80,
+      confidence: 0.92,
+      assessment: "Demo data: Strong germination detected. Healthy seedling development observed.",
     })
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-    const text = data.choices[0]?.message?.content || ""
-
-    // Parse GPT response
-    try {
-      const analysis = JSON.parse(text)
-      return NextResponse.json({
-        success: true,
-        source: "gpt",
-        germinatedCount: analysis.germinated_seeds || 0,
-        totalSeeds: analysis.total_seeds || 0,
-        germinationRate: analysis.germination_rate || 0,
-        confidence: 0.85,
-        assessment: analysis.growth_stage || "Analysis complete",
-      })
-    } catch {
-      // If JSON parsing fails, extract numbers from text
-      const numbers = text.match(/\d+/g) || []
-      return NextResponse.json({
-        success: true,
-        source: "gpt",
-        germinatedCount: numbers[0] ? Number.parseInt(numbers[0]) : 0,
-        totalSeeds: numbers[1] ? Number.parseInt(numbers[1]) : 0,
-        germinationRate: numbers[2] ? Number.parseInt(numbers[2]) : 0,
-        confidence: 0.75,
-        assessment: text,
-      })
-    }
   } catch (error) {
     console.error("[v0] Analysis error:", error)
     return NextResponse.json(

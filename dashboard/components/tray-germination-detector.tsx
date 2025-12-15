@@ -7,27 +7,20 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Upload, Loader2, Download, ImageIcon, CheckCircle, XCircle } from "lucide-react"
-
-interface TrayResult {
-  trayIndex: number
-  germinated: boolean
-  greenPercentage: number
-  confidence: number
-  bbox: number[]
-}
+import { Upload, Loader2, Download, ImageIcon, CheckCircle } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 interface AnalysisResult {
   success: boolean
-  totalTrays: number
-  germinatedTrays: number
-  notGerminatedTrays: number
+  source: "colab" | "demo"
+  germinatedCount: number
+  totalSeeds: number
   germinationRate: number
-  trays: TrayResult[]
-  processedImage?: string
-  originalImage?: string
-  redMarkersFound: boolean
-  processingTime: number
+  confidence: number
+  assessment?: string
+  probability?: number
+  isGerminated?: boolean
 }
 
 export default function TrayGerminationDetector() {
@@ -35,6 +28,8 @@ export default function TrayGerminationDetector() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [colabEndpoint, setColabEndpoint] = useState<string>("")
+  const [useColab, setUseColab] = useState(false)
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -61,10 +56,14 @@ export default function TrayGerminationDetector() {
     setError(null)
 
     try {
-      const response = await fetch("/api/analyze-tray-germination", {
+      const response = await fetch("/api/analyze-germination", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: selectedImage }),
+        body: JSON.stringify({
+          imageUrl: selectedImage,
+          useColab: useColab && colabEndpoint.trim() !== "",
+          colabEndpoint: colabEndpoint.trim(),
+        }),
       })
 
       const data = await response.json()
@@ -95,11 +94,55 @@ export default function TrayGerminationDetector() {
 
   return (
     <div className="space-y-6">
+      {/* Settings Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>AI Model Settings</CardTitle>
+          <CardDescription>Connect your GerminationNet model from Colab (optional)</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="useColab"
+              checked={useColab}
+              onChange={(e) => setUseColab(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <Label htmlFor="useColab">Use my GerminationNet model from Colab</Label>
+          </div>
+
+          {useColab && (
+            <div className="space-y-2">
+              <Label htmlFor="colabEndpoint">Colab ngrok URL</Label>
+              <Input
+                id="colabEndpoint"
+                type="url"
+                placeholder="https://xxxx-xx-xxx-xxx-xx.ngrok-free.app"
+                value={colabEndpoint}
+                onChange={(e) => setColabEndpoint(e.target.value)}
+              />
+              <p className="text-sm text-muted-foreground">
+                Run the Flask server in your Colab notebook and paste the ngrok URL here
+              </p>
+            </div>
+          )}
+
+          {!useColab && (
+            <Alert>
+              <AlertDescription className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-blue-600" />
+                Using demo data for analysis (connect Colab to use your model)
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Upload Section */}
       <Card>
         <CardHeader>
           <CardTitle>Upload Image</CardTitle>
-          <CardDescription>Upload an image with red marker tapes and trays for germination analysis</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-4">
@@ -150,83 +193,57 @@ export default function TrayGerminationDetector() {
         <>
           <Card>
             <CardHeader>
-              <CardTitle>Analysis Results</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Analysis Results</CardTitle>
+                <Badge variant={analysisResult.source === "colab" ? "default" : "secondary"}>
+                  {analysisResult.source === "colab" ? "🔬 Your GerminationNet Model" : "📊 Demo Data"}
+                </Badge>
+              </div>
               <CardDescription>
-                Germination detection completed in {analysisResult.processingTime.toFixed(2)}s
+                {analysisResult.source === "colab"
+                  ? "Analyzed using your custom PyTorch ResNet18 model"
+                  : "Showing demo results (connect your Colab model for real analysis)"}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Statistics */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="border rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold">{analysisResult.totalTrays}</div>
-                  <div className="text-sm text-muted-foreground">Total Trays</div>
+                  <div className="text-2xl font-bold">{analysisResult.totalSeeds || 1}</div>
+                  <div className="text-sm text-muted-foreground">Total Seeds</div>
                 </div>
                 <div className="border rounded-lg p-4 text-center bg-green-50">
-                  <div className="text-2xl font-bold text-green-600">{analysisResult.germinatedTrays}</div>
+                  <div className="text-2xl font-bold text-green-600">{analysisResult.germinatedCount || 0}</div>
                   <div className="text-sm text-muted-foreground">Germinated</div>
-                </div>
-                <div className="border rounded-lg p-4 text-center bg-red-50">
-                  <div className="text-2xl font-bold text-red-600">{analysisResult.notGerminatedTrays}</div>
-                  <div className="text-sm text-muted-foreground">Not Germinated</div>
                 </div>
                 <div className="border rounded-lg p-4 text-center bg-blue-50">
                   <div className="text-2xl font-bold text-blue-600">{analysisResult.germinationRate.toFixed(1)}%</div>
                   <div className="text-sm text-muted-foreground">Success Rate</div>
                 </div>
-              </div>
-
-              {/* Red Markers Status */}
-              <Alert>
-                <AlertDescription className="flex items-center gap-2">
-                  {analysisResult.redMarkersFound ? (
-                    <>
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      Red markers detected - Area masking applied
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="w-4 h-4 text-yellow-600" />
-                      No red markers found - Using original image
-                    </>
-                  )}
-                </AlertDescription>
-              </Alert>
-
-              {/* Individual Tray Results */}
-              <div>
-                <h3 className="font-semibold mb-3">Individual Tray Analysis</h3>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {analysisResult.trays.map((tray) => (
-                    <Card key={tray.trayIndex}>
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-sm">Tray {tray.trayIndex + 1}</CardTitle>
-                          <Badge variant={tray.germinated ? "default" : "destructive"}>
-                            {tray.germinated ? "🌱 Germinated" : "🌰 Not Germinated"}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Green Pixels:</span>
-                          <span className="font-semibold">{tray.greenPercentage.toFixed(2)}%</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Confidence:</span>
-                          <span className="font-semibold">{(tray.confidence * 100).toFixed(1)}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full ${tray.germinated ? "bg-green-600" : "bg-red-600"}`}
-                            style={{ width: `${tray.greenPercentage * 10}%` }}
-                          />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                <div className="border rounded-lg p-4 text-center bg-purple-50">
+                  <div className="text-2xl font-bold text-purple-600">
+                    {(analysisResult.confidence * 100).toFixed(1)}%
+                  </div>
+                  <div className="text-sm text-muted-foreground">Confidence</div>
                 </div>
               </div>
+
+              {/* Model-specific details */}
+              {analysisResult.source === "colab" && analysisResult.probability !== undefined && (
+                <Alert>
+                  <AlertDescription className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    Model Prediction: {(analysisResult.probability * 100).toFixed(2)}% germination probability
+                    {analysisResult.isGerminated ? " (Germinated ✓)" : " (Not Germinated ✗)"}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {analysisResult.assessment && (
+                <Alert>
+                  <AlertDescription>{analysisResult.assessment}</AlertDescription>
+                </Alert>
+              )}
 
               {/* Export Button */}
               <Button onClick={exportResults} variant="outline" className="w-full bg-transparent">

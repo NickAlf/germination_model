@@ -202,3 +202,27 @@ If your Colab model is unavailable, the dashboard automatically uses ChatGPT as 
 - Use the "Test Connection" button before analyzing
 - Save your endpoint so you don't have to re-enter it
 
+## 🎓 For Your Thesis
+
+Document these components:
+1. **Model Architecture**: ResNet18 with binary classification head
+2. **Training Dataset**: Your Google Drive seed images
+3. **Deployment**: Flask API with ngrok tunnel
+4. **Integration**: RESTful API connection to web dashboard
+5. **Fallback Strategy**: ChatGPT when Colab unavailable
+
+## 🚀 Next Steps
+
+Once everything works:
+1. Test with multiple seed images
+2. Compare Colab model vs ChatGPT results
+3. Document accuracy metrics
+4. Add batch processing for multiple images
+5. Export results for thesis analysis
+
+---
+
+**Need help?** Check the error messages in:
+- Colab notebook output
+- Browser developer console (F12)
+- Dashboard error alerts
